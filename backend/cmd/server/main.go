@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -43,16 +44,69 @@ func main() {
 
 	mux.HandleFunc("POST /api/parse-schedule", handleParseSchedule(client))
 
+	staticDir := resolveStaticDir()
+	if staticDir != "" {
+		log.Printf("Serving static PWA frontend from %s", staticDir)
+		mux.Handle("/", spaHandler(staticDir))
+	}
+
 	server := &http.Server{
 		Addr:              ":" + port,
 		Handler:           withCORS(mux),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
-	log.Printf("Elischedule Go backend listening on :%s (model=%s, geminiReady=%v)", port, client.Model, client.APIKey != "")
+	log.Printf("Elischedule Go server listening on :%s (model=%s, geminiReady=%v)", port, client.Model, client.APIKey != "")
 	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatalf("server failed: %v", err)
 	}
+}
+
+func resolveStaticDir() string {
+	candidates := []string{
+		os.Getenv("STATIC_DIR"),
+		"./public",
+		"../frontend/dist",
+	}
+	for _, dir := range candidates {
+		if dir == "" {
+			continue
+		}
+		if info, err := os.Stat(filepath.Join(dir, "index.html")); err == nil && !info.IsDir() {
+			return dir
+		}
+	}
+	return ""
+}
+
+func spaHandler(staticDir string) http.Handler {
+	fileServer := http.FileServer(http.Dir(staticDir))
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			http.NotFound(w, r)
+			return
+		}
+
+		cleanPath := filepath.Clean(r.URL.Path)
+		target := filepath.Join(staticDir, cleanPath)
+		info, err := os.Stat(target)
+
+		if err == nil && !info.IsDir() {
+			switch {
+			case strings.HasPrefix(r.URL.Path, "/assets/"):
+				w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+			case r.URL.Path == "/sw.js" || r.URL.Path == "/manifest.webmanifest":
+				w.Header().Set("Cache-Control", "no-cache")
+			default:
+				w.Header().Set("Cache-Control", "public, max-age=3600")
+			}
+			fileServer.ServeHTTP(w, r)
+			return
+		}
+
+		w.Header().Set("Cache-Control", "no-cache")
+		http.ServeFile(w, r, filepath.Join(staticDir, "index.html"))
+	})
 }
 
 func handleParseSchedule(client *gemini.Client) http.HandlerFunc {
