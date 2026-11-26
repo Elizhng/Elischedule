@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import {
   formatPeriodTimeRange,
   shortenUSSTLocation,
+  WEEKDAY_LABELS,
   WEEKDAY_MONO,
 } from '../constants/usst';
 import { formatWeekSummary } from '../store/localStore';
@@ -13,44 +14,63 @@ const PAPER_EASE = [0.2, 0, 0, 1] as const;
 
 interface CourseDetailModalProps {
   course: Course;
+  mode?: 'edit' | 'create';
+  totalWeeks: number;
   onClose: () => void;
   onSave: (updated: Course) => void;
-  onDelete: (courseId: string) => void;
+  onDelete?: (courseId: string) => void;
 }
 
 export function CourseDetailModal({
   course,
+  mode = 'edit',
+  totalWeeks,
   onClose,
   onSave,
   onDelete,
 }: CourseDetailModalProps) {
+  const initialMinWeek = course.weeks.length > 0 ? Math.min(...course.weeks) : 1;
+  const initialMaxWeek = course.weeks.length > 0 ? Math.max(...course.weeks) : 16;
+
   const [name, setName] = useState(course.name);
   const [teacher, setTeacher] = useState(course.teacher);
   const [location, setLocation] = useState(course.location);
+  const [dayOfWeek, setDayOfWeek] = useState(course.dayOfWeek);
+  const [startPeriod, setStartPeriod] = useState(course.startPeriod);
+  const [endPeriod, setEndPeriod] = useState(course.endPeriod);
+  const [startWeek, setStartWeek] = useState(initialMinWeek);
+  const [endWeek, setEndWeek] = useState(initialMaxWeek);
   const [weekType, setWeekType] = useState<WeekType>(course.weekType);
   const [notes, setNotes] = useState(course.notes || '');
 
-  const handleSave = () => {
-    const baseWeeks =
-      course.weeks && course.weeks.length > 0
-        ? course.weeks
-        : Array.from({ length: 16 }, (_, i) => i + 1);
-    const minW = Math.min(...baseWeeks);
-    const maxW = Math.max(...baseWeeks);
-    const nextWeeks: number[] = [];
-    for (let w = minW; w <= maxW; w++) {
-      if (weekType === 'odd' && w % 2 === 0) continue;
-      if (weekType === 'even' && w % 2 !== 0) continue;
-      nextWeeks.push(w);
+  const buildWeeks = (from: number, to: number, wt: WeekType): number[] => {
+    const lo = Math.max(1, Math.min(from, to));
+    const hi = Math.min(totalWeeks, Math.max(from, to));
+    const arr: number[] = [];
+    for (let w = lo; w <= hi; w++) {
+      if (wt === 'odd' && w % 2 === 0) continue;
+      if (wt === 'even' && w % 2 !== 0) continue;
+      arr.push(w);
     }
+    return arr.length > 0 ? arr : [lo];
+  };
 
+  const previewWeeks = buildWeeks(startWeek, endWeek, weekType);
+
+  const handleSave = () => {
+    const finalName = name.trim();
+    if (!finalName) return;
+    const clampedEnd = Math.max(startPeriod, endPeriod);
     onSave({
       ...course,
-      name: name.trim() || course.name,
+      name: finalName,
       teacher: teacher.trim(),
       location: location.trim(),
+      dayOfWeek,
+      startPeriod,
+      endPeriod: clampedEnd,
       weekType,
-      weeks: nextWeeks.length > 0 ? nextWeeks : baseWeeks,
+      weeks: previewWeeks,
       notes: notes.trim(),
     });
     onClose();
@@ -74,13 +94,20 @@ export function CourseDetailModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="sheet-head">
-          <div>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <div className="sheet-eyebrow font-mono">
-              {WEEKDAY_MONO[course.dayOfWeek - 1]} · {formatPeriodTimeRange(course.startPeriod, course.endPeriod)} · PERIOD {course.startPeriod}–{course.endPeriod}
+              {mode === 'create' ? 'NEW COURSE · ' : ''}
+              {WEEKDAY_MONO[dayOfWeek - 1]} · {formatPeriodTimeRange(startPeriod, Math.max(startPeriod, endPeriod))} · PERIOD {startPeriod}–{Math.max(startPeriod, endPeriod)}
             </div>
-            <h2 className="sheet-title font-serif">{name || course.name}</h2>
+            <input
+              className="sheet-title-input font-serif"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="输入课程名称…"
+              autoFocus={mode === 'create'}
+            />
             <p className="sheet-subtitle">
-              {teacher || '未指定教师'} · {location || '未指定教室'} · {formatWeekSummary(course.weeks, weekType)}
+              {teacher || '未指定教师'} · {location || '未指定教室'} · {formatWeekSummary(previewWeeks, weekType)}
             </p>
           </div>
           <button
@@ -135,6 +162,90 @@ export function CourseDetailModal({
             </label>
           </div>
 
+          <div className="ledger-row">
+            <label>
+              <span className="ledger-label font-mono">Day &amp; Period</span>
+              <div className="inline-select-group font-mono">
+                <select
+                  className="ledger-select"
+                  value={dayOfWeek}
+                  onChange={(e) => setDayOfWeek(Number(e.target.value))}
+                >
+                  {WEEKDAY_LABELS.map((label, idx) => (
+                    <option key={label} value={idx + 1}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+                <span style={{ color: 'var(--ink-3)' }}>·</span>
+                <select
+                  className="ledger-select"
+                  value={startPeriod}
+                  onChange={(e) => {
+                    const nextStart = Number(e.target.value);
+                    setStartPeriod(nextStart);
+                    if (endPeriod < nextStart) setEndPeriod(nextStart);
+                  }}
+                >
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((p) => (
+                    <option key={p} value={p}>
+                      {p}节
+                    </option>
+                  ))}
+                </select>
+                <span style={{ color: 'var(--ink-3)' }}>–</span>
+                <select
+                  className="ledger-select"
+                  value={Math.max(startPeriod, endPeriod)}
+                  onChange={(e) => setEndPeriod(Number(e.target.value))}
+                >
+                  {Array.from({ length: 12 }, (_, i) => i + 1)
+                    .filter((p) => p >= startPeriod)
+                    .map((p) => (
+                      <option key={p} value={p}>
+                        {p}节
+                      </option>
+                    ))}
+                </select>
+              </div>
+            </label>
+
+            <label>
+              <span className="ledger-label font-mono">Week Range</span>
+              <div className="inline-select-group font-mono">
+                <select
+                  className="ledger-select"
+                  value={startWeek}
+                  onChange={(e) => {
+                    const nextStart = Number(e.target.value);
+                    setStartWeek(nextStart);
+                    if (endWeek < nextStart) setEndWeek(nextStart);
+                  }}
+                >
+                  {Array.from({ length: totalWeeks }, (_, i) => i + 1).map((w) => (
+                    <option key={w} value={w}>
+                      W{String(w).padStart(2, '0')}
+                    </option>
+                  ))}
+                </select>
+                <span style={{ color: 'var(--ink-3)' }}>–</span>
+                <select
+                  className="ledger-select"
+                  value={Math.max(startWeek, endWeek)}
+                  onChange={(e) => setEndWeek(Number(e.target.value))}
+                >
+                  {Array.from({ length: totalWeeks }, (_, i) => i + 1)
+                    .filter((w) => w >= startWeek)
+                    .map((w) => (
+                      <option key={w} value={w}>
+                        W{String(w).padStart(2, '0')}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            </label>
+          </div>
+
           <div className="ledger-inline">
             <span className="ledger-label font-mono" style={{ marginBottom: 0 }}>
               Cadence
@@ -165,7 +276,7 @@ export function CourseDetailModal({
           </label>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 4 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {mode === 'edit' && onDelete ? (
               <button
                 type="button"
                 className="btn-quiet btn-danger"
@@ -177,21 +288,21 @@ export function CourseDetailModal({
               >
                 删除
               </button>
-              <input
-                className="ledger-input"
-                style={{ fontSize: 12, color: 'var(--ink-3)', width: 140 }}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                aria-label="编辑课程全称"
-              />
-            </div>
+            ) : (
+              <span />
+            )}
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <button type="button" className="btn-quiet" onClick={onClose}>
                 取消
               </button>
-              <button type="button" className="btn-ink" onClick={handleSave}>
-                保存
+              <button
+                type="button"
+                className="btn-ink"
+                disabled={!name.trim()}
+                onClick={handleSave}
+              >
+                {mode === 'create' ? '添加课程' : '保存'}
               </button>
             </div>
           </div>

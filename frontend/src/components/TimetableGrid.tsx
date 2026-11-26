@@ -1,9 +1,11 @@
 import { AnimatePresence, motion, type PanInfo } from 'framer-motion';
 import { USST_PERIODS, WEEKDAY_MONO } from '../constants/usst';
 import {
+  formatMonthDay,
   getCurrentTimelinePeriodOffset,
-  getTodayDayOfWeek,
+  getDatesForWeek,
   isCourseActiveInWeek,
+  isSameLocalDate,
 } from '../store/localStore';
 import type { Course } from '../types';
 import { CourseCard } from './CourseCard';
@@ -14,23 +16,28 @@ const PAPER_EASE = [0.2, 0, 0, 1] as const;
 
 interface TimetableGridProps {
   courses: Course[];
+  termStartDate: string;
   currentWeek: number;
   now: Date;
   staggerSeed: number;
   onSelectCourse: (course: Course) => void;
+  onCreateAtSlot: (dayOfWeek: number, startPeriod: number) => void;
   onSwipeWeek: (delta: number) => void;
 }
 
 export function TimetableGrid({
   courses,
+  termStartDate,
   currentWeek,
   now,
   staggerSeed,
   onSelectCourse,
+  onCreateAtSlot,
   onSwipeWeek,
 }: TimetableGridProps) {
-  const todayDay = getTodayDayOfWeek(now);
+  const weekDates = getDatesForWeek(termStartDate, currentWeek);
   const livePeriodOffset = getCurrentTimelinePeriodOffset(now);
+  const isViewingCurrentWeek = weekDates.some((d) => isSameLocalDate(d, now));
   const activeCourses = courses.filter((c) => isCourseActiveInWeek(c, currentWeek));
 
   const handleDragEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
@@ -53,14 +60,17 @@ export function TimetableGrid({
       <div className="timetable-head">
         <div />
         {WEEKDAY_MONO.map((mono, idx) => {
-          const dayNum = idx + 1;
-          const isToday = dayNum === todayDay;
+          const date = weekDates[idx];
+          const isToday = isSameLocalDate(date, now);
           return (
             <div
               key={mono}
               className={`day-col-header${isToday ? ' day-col-header--today' : ''}`}
             >
-              <span className="day-mono font-mono">{mono}</span>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                <span className="day-mono font-mono">{mono}</span>
+                <span className="day-date font-mono">{formatMonthDay(date)}</span>
+              </div>
               <span className="day-cn">{CN_SHORT_DAYS[idx]}</span>
             </div>
           );
@@ -78,16 +88,23 @@ export function TimetableGrid({
 
         {WEEKDAY_MONO.map((_, idx) => {
           const dayNum = idx + 1;
+          const isToday = isSameLocalDate(weekDates[idx], now);
           const dayCourses = activeCourses.filter((c) => c.dayOfWeek === dayNum);
           return (
             <div key={dayNum} className="day-column">
               {USST_PERIODS.map((slot) => (
-                <div key={slot.period} className="grid-slot-line" />
+                <button
+                  key={slot.period}
+                  type="button"
+                  className="grid-slot-line grid-slot-btn"
+                  onClick={() => onCreateAtSlot(dayNum, slot.period)}
+                  aria-label={`在周${CN_SHORT_DAYS[idx]}第${slot.period}节新建课程`}
+                />
               ))}
               <AnimatePresence mode="popLayout">
                 {dayCourses.map((course, cIdx) => {
                   const isLive =
-                    dayNum === todayDay &&
+                    isToday &&
                     livePeriodOffset !== null &&
                     livePeriodOffset >= course.startPeriod - 1 &&
                     livePeriodOffset <= course.endPeriod;
@@ -106,7 +123,7 @@ export function TimetableGrid({
           );
         })}
 
-        {livePeriodOffset !== null && (
+        {isViewingCurrentWeek && livePeriodOffset !== null && (
           <div
             className="live-line"
             style={{ top: livePeriodOffset * PERIOD_HEIGHT + 8 }}

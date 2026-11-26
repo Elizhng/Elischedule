@@ -25,6 +25,7 @@ export interface ParseResponse {
 
 export interface ScheduleState {
   term: string;
+  termStartDate: string; // YYYY-MM-DD (Monday of Week 1)
   currentWeek: number;
   totalWeeks: number;
   theme: ThemeMode;

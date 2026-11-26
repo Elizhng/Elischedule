@@ -9,6 +9,14 @@ export function EmblemIcon() {
   );
 }
 
+export function PlusIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
+      <path d="M12 5.5v13M5.5 12h13" />
+    </svg>
+  );
+}
+
 export function TimetableIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
@@ -36,6 +44,27 @@ export function LocateWeekIcon() {
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 4a8 8 0 1 1-7.4 5" />
       <circle cx="12" cy="12" r="2" fill="var(--book-cloth)" stroke="none" />
+    </svg>
+  );
+}
+
+export function SlidersIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 7h10M18 7h2" />
+      <circle cx="16" cy="7" r="2" />
+      <path d="M4 17h4M12 17h8" />
+      <circle cx="10" cy="17" r="2" />
+    </svg>
+  );
+}
+
+export function CalendarExportIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 4v10" />
+      <path d="m8.5 10.5 3.5 3.5 3.5-3.5" />
+      <path d="M4.5 15.5v2a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-2" />
     </svg>
   );
 }

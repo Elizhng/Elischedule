@@ -2,8 +2,71 @@ import { DEFAULT_SAMPLE_COURSES, USST_PERIODS } from '../constants/usst';
 import type { Course, ScheduleState, ThemeMode, WeekType } from '../types';
 
 const STORAGE_KEY = 'elischedule.v1.state';
+export const DEFAULT_TERM_START_DATE = '2026-09-07';
 
-export function getInitialState(): ScheduleState {
+export function parseLocalDate(dateStr: string): Date {
+  const parts = dateStr.split('-').map(Number);
+  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) {
+    return new Date(2026, 8, 7);
+  }
+  return new Date(parts[0], parts[1] - 1, parts[2]);
+}
+
+export function formatISODate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * Snaps any YYYY-MM-DD date string to the Monday of that ISO week.
+ */
+export function normalizeToMonday(dateStr: string): string {
+  const d = parseLocalDate(dateStr);
+  const jsDay = d.getDay(); // 0 = Sun .. 6 = Sat
+  const diff = jsDay === 0 ? -6 : 1 - jsDay;
+  d.setDate(d.getDate() + diff);
+  return formatISODate(d);
+}
+
+export function computeCurrentWeek(
+  termStartDate: string,
+  now: Date,
+  totalWeeks = 18
+): number {
+  const start = parseLocalDate(normalizeToMonday(termStartDate));
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diffDays = Math.floor((today.getTime() - start.getTime()) / 86_400_000);
+  const week = Math.floor(diffDays / 7) + 1;
+  return clampWeek(week, totalWeeks);
+}
+
+export function getDatesForWeek(termStartDate: string, week: number): Date[] {
+  const monday = parseLocalDate(normalizeToMonday(termStartDate));
+  const offsetDays = (week - 1) * 7;
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + offsetDays + i);
+    return d;
+  });
+}
+
+export function formatMonthDay(d: Date): string {
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${m}/${day}`;
+}
+
+export function isSameLocalDate(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+export function getInitialState(now: Date = new Date()): ScheduleState {
   const prefersDark =
     typeof window !== 'undefined' &&
     window.matchMedia &&
@@ -11,7 +74,8 @@ export function getInitialState(): ScheduleState {
 
   const fallback: ScheduleState = {
     term: '2026-2027 学年 · 秋季',
-    currentWeek: 12,
+    termStartDate: DEFAULT_TERM_START_DATE,
+    currentWeek: computeCurrentWeek(DEFAULT_TERM_START_DATE, now, 18),
     totalWeeks: 18,
     theme: prefersDark ? 'dark' : 'light',
     courses: DEFAULT_SAMPLE_COURSES,
@@ -24,11 +88,21 @@ export function getInitialState(): ScheduleState {
     if (!raw) return fallback;
     const parsed = JSON.parse(raw) as Partial<ScheduleState>;
     if (!Array.isArray(parsed.courses)) return fallback;
+    const totalWeeks = parsed.totalWeeks ?? 18;
+    const termStartDate = parsed.termStartDate
+      ? normalizeToMonday(parsed.termStartDate)
+      : fallback.termStartDate;
     return {
       term: parsed.term || fallback.term,
-      currentWeek: clampWeek(parsed.currentWeek ?? fallback.currentWeek, parsed.totalWeeks ?? 18),
-      totalWeeks: parsed.totalWeeks ?? 18,
-      theme: (parsed.theme === 'dark' || parsed.theme === 'light' ? parsed.theme : fallback.theme) as ThemeMode,
+      termStartDate,
+      currentWeek: clampWeek(
+        parsed.currentWeek ?? computeCurrentWeek(termStartDate, now, totalWeeks),
+        totalWeeks
+      ),
+      totalWeeks,
+      theme: (parsed.theme === 'dark' || parsed.theme === 'light'
+        ? parsed.theme
+        : fallback.theme) as ThemeMode,
       courses: parsed.courses,
       lastImportedAt: parsed.lastImportedAt,
     };
@@ -69,10 +143,6 @@ export function formatWeekSummary(weeks: number[], weekType: WeekType): string {
   return `${first}-${last} 周${suffix}`;
 }
 
-/**
- * Returns the vertical fractional position (0..12) of the current clock time
- * within the 12-period USST schedule, or null if outside 07:30-22:00.
- */
 export function getCurrentTimelinePeriodOffset(now: Date): number | null {
   const mins = now.getHours() * 60 + now.getMinutes();
   const firstStart = USST_PERIODS[0].startMin;
