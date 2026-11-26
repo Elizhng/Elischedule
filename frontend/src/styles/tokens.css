@@ -1,89 +1,59 @@
 :root {
-  --font-mono: 'iA Writer Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
-  --font-quattro: 'iA Writer Quattro', 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+  /* Editorial Typography System */
+  --font-serif: 'Source Serif 4', 'Iowan Old Style', 'Songti SC', 'Noto Serif SC', Georgia, serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans SC', sans-serif;
+  --font-mono: 'iA Writer Mono', 'Anthrosevka Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
 
-  /* Claude Warm Alabaster (Light Mode) */
-  --bg-canvas: #FAF9F5;
-  --bg-surface: #F5F4EF;
-  --bg-card: #FFFFFF;
-  --bg-card-subtle: #F0EFEA;
-  --border-hairline: rgba(230, 228, 221, 0.95);
-  --border-grid: rgba(230, 228, 221, 0.72);
-  --text-primary: #262522;
-  --text-secondary: #6B6860;
-  --text-muted: #98938A;
+  /* Geist | Anthropic Archival Palette */
+  --ivory-light: #FAFAF7;
+  --ivory-med: #F0F0EB;
+  --ivory-dark: #E5E4DF;
+  --slate-dark: #191919;
+  --slate-med: #262625;
+  --slate-light: #40403E;
+  --cloud-dark: #666663;
+  --cloud-med: #91918D;
+  --cloud-light: #BFBFBA;
+  --book-cloth: #CC785C;
+  --kraft: #D4A27F;
+  --manilla: #EBDBBC;
+  --err: #BF4D43;
 
-  /* Claude Terracotta Accent */
-  --accent: #D97757;
-  --accent-hover: #DE7356;
-  --accent-soft: rgba(217, 119, 87, 0.14);
-  --accent-glow: rgba(217, 119, 87, 0.35);
+  /* Light Mode Semantic Surfaces (Hierarchy via tonal shift, zero shadows) */
+  --bg-canvas: var(--ivory-light);
+  --bg-rail: var(--ivory-med);
+  --bg-tile: var(--ivory-med);
+  --bg-tile-hover: var(--ivory-dark);
+  --bg-tile-live: #F2E8DE;
+  --bg-sheet: var(--ivory-light);
+  --bg-sheet-muted: var(--ivory-med);
 
-  /* Morandi Mineral Palette (Light Mode: 12-15% tint + deep matching ink) */
-  --mineral-0-bg: rgba(93, 123, 111, 0.12);
-  --mineral-0-border: rgba(93, 123, 111, 0.28);
-  --mineral-0-ink: #2C4A3E;
+  --ink-1: var(--slate-dark);
+  --ink-2: var(--cloud-dark);
+  --ink-3: var(--cloud-med);
+  --line: rgba(25, 25, 25, 0.08);
+  --line-soft: rgba(25, 25, 25, 0.045);
+  --scrim: rgba(25, 25, 25, 0.22);
 
-  --mineral-1-bg: rgba(90, 115, 142, 0.12);
-  --mineral-1-border: rgba(90, 115, 142, 0.28);
-  --mineral-1-ink: #2D445C;
-
-  --mineral-2-bg: rgba(181, 141, 76, 0.13);
-  --mineral-2-border: rgba(181, 141, 76, 0.30);
-  --mineral-2-ink: #664C1E;
-
-  --mineral-3-bg: rgba(189, 118, 108, 0.13);
-  --mineral-3-border: rgba(189, 118, 108, 0.30);
-  --mineral-3-ink: #6F352E;
-
-  --mineral-4-bg: rgba(132, 121, 148, 0.13);
-  --mineral-4-border: rgba(132, 121, 148, 0.28);
-  --mineral-4-ink: #463C57;
-
-  --shadow-modal: 0 24px 64px -16px rgba(31, 30, 29, 0.18), 0 4px 16px -4px rgba(31, 30, 29, 0.08);
-  --backdrop-blur: rgba(250, 249, 245, 0.72);
+  /* Damped Zero-Bounce Motion Curve */
+  --ease-paper: cubic-bezier(0.2, 0, 0, 1);
 }
 
 [data-theme='dark'] {
-  /* Claude Warm Charcoal (Dark Mode) */
-  --bg-canvas: #1F1E1D;
-  --bg-surface: #252422;
-  --bg-card: #2A2927;
-  --bg-card-subtle: #312F2C;
-  --border-hairline: rgba(66, 63, 58, 0.85);
-  --border-grid: rgba(58, 56, 51, 0.65);
-  --text-primary: #ECEAE4;
-  --text-secondary: #A6A29A;
-  --text-muted: #78746D;
+  --bg-canvas: #191919;       /* Slate Dark */
+  --bg-rail: #141413;
+  --bg-tile: #262625;         /* Slate Medium */
+  --bg-tile-hover: #30302E;
+  --bg-tile-live: #2D2522;
+  --bg-sheet: #212120;
+  --bg-sheet-muted: #262625;
 
-  --accent: #DE7356;
-  --accent-hover: #E6856A;
-  --accent-soft: rgba(222, 115, 86, 0.18);
-  --accent-glow: rgba(222, 115, 86, 0.45);
-
-  /* Morandi Mineral Palette (Dark Mode: luminous muted ink on warm charcoal) */
-  --mineral-0-bg: rgba(120, 158, 142, 0.15);
-  --mineral-0-border: rgba(120, 158, 142, 0.32);
-  --mineral-0-ink: #B7D5C8;
-
-  --mineral-1-bg: rgba(116, 146, 179, 0.15);
-  --mineral-1-border: rgba(116, 146, 179, 0.32);
-  --mineral-1-ink: #B6CEE8;
-
-  --mineral-2-bg: rgba(207, 169, 101, 0.15);
-  --mineral-2-border: rgba(207, 169, 101, 0.32);
-  --mineral-2-ink: #E6CFA3;
-
-  --mineral-3-bg: rgba(209, 138, 128, 0.15);
-  --mineral-3-border: rgba(209, 138, 128, 0.32);
-  --mineral-3-ink: #EBBDB6;
-
-  --mineral-4-bg: rgba(162, 150, 179, 0.15);
-  --mineral-4-border: rgba(162, 150, 179, 0.32);
-  --mineral-4-ink: #D1C7DF;
-
-  --shadow-modal: 0 28px 72px -12px rgba(0, 0, 0, 0.55), 0 6px 20px -4px rgba(0, 0, 0, 0.35);
-  --backdrop-blur: rgba(24, 23, 22, 0.72);
+  --ink-1: #F0F0EB;           /* Ivory Medium */
+  --ink-2: #91918D;           /* Cloud Medium */
+  --ink-3: #666663;           /* Cloud Dark */
+  --line: rgba(240, 240, 235, 0.09);
+  --line-soft: rgba(240, 240, 235, 0.045);
+  --scrim: rgba(0, 0, 0, 0.48);
 }
 
 *,
@@ -97,11 +67,15 @@ body {
   margin: 0;
   padding: 0;
   background-color: var(--bg-canvas);
-  color: var(--text-primary);
-  font-family: var(--font-quattro);
+  color: var(--ink-1);
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  transition: background-color 240ms ease, color 240ms ease;
+  transition: background-color 180ms var(--ease-paper), color 180ms var(--ease-paper);
+}
+
+.font-serif {
+  font-family: var(--font-serif);
 }
 
 .font-mono {
@@ -109,36 +83,6 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-.font-quattro {
-  font-family: var(--font-quattro);
-}
-
-@keyframes terracottaPulse {
-  0%, 100% {
-    box-shadow: 0 0 0 0 var(--accent-glow);
-    opacity: 0.95;
-  }
-  50% {
-    box-shadow: 0 0 12px 3px var(--accent-glow);
-    opacity: 1;
-  }
-}
-
-@keyframes claudeHalo {
-  0%, 100% {
-    transform: scale(0.96);
-    opacity: 0.55;
-  }
-  50% {
-    transform: scale(1.08);
-    opacity: 0.95;
-  }
-}
-
-.terracotta-dot {
-  animation: terracottaPulse 2.6s ease-in-out infinite;
-}
-
-.claude-halo {
-  animation: claudeHalo 2.4s ease-in-out infinite;
+.font-sans {
+  font-family: var(--font-sans);
 }
