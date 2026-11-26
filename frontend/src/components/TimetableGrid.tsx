@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { AnimatePresence, motion, type PanInfo } from 'framer-motion';
 import { USST_PERIODS, WEEKDAY_MONO } from '../constants/usst';
 import {
@@ -10,9 +11,22 @@ import {
 import type { Course } from '../types';
 import { CourseCard } from './CourseCard';
 
-const PERIOD_HEIGHT = 64;
 const CN_SHORT_DAYS = ['一', '二', '三', '四', '五', '六', '日'];
 const PAPER_EASE = [0.2, 0, 0, 1] as const;
+
+function useIsMobile(breakpoint = 720): boolean {
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth < breakpoint : false
+  );
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, [breakpoint]);
+  return isMobile;
+}
 
 interface TimetableGridProps {
   courses: Course[];
@@ -35,10 +49,16 @@ export function TimetableGrid({
   onCreateAtSlot,
   onSwipeWeek,
 }: TimetableGridProps) {
+  const isMobile = useIsMobile();
   const weekDates = getDatesForWeek(termStartDate, currentWeek);
   const livePeriodOffset = getCurrentTimelinePeriodOffset(now);
   const isViewingCurrentWeek = weekDates.some((d) => isSameLocalDate(d, now));
   const activeCourses = courses.filter((c) => isCourseActiveInWeek(c, currentWeek));
+
+  // On mobile portrait, show 5 crisp Mon-Fri columns unless the week actually has weekend classes
+  const hasWeekendClasses = activeCourses.some((c) => c.dayOfWeek >= 6);
+  const visibleDaysCount = isMobile && !hasWeekendClasses ? 5 : 7;
+  const visibleDays = Array.from({ length: visibleDaysCount }, (_, i) => i);
 
   const handleDragEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     if (info.offset.x < -64 || info.velocity.x < -380) {
@@ -51,6 +71,7 @@ export function TimetableGrid({
   return (
     <motion.div
       className="timetable-inner"
+      data-cols={visibleDaysCount}
       drag="x"
       dragConstraints={{ left: 0, right: 0 }}
       dragElastic={0.08}
@@ -59,7 +80,8 @@ export function TimetableGrid({
     >
       <div className="timetable-head">
         <div />
-        {WEEKDAY_MONO.map((mono, idx) => {
+        {visibleDays.map((idx) => {
+          const mono = WEEKDAY_MONO[idx];
           const date = weekDates[idx];
           const isToday = isSameLocalDate(date, now);
           return (
@@ -67,9 +89,11 @@ export function TimetableGrid({
               key={mono}
               className={`day-col-header${isToday ? ' day-col-header--today' : ''}`}
             >
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+              <div className="day-col-meta">
                 <span className="day-mono font-mono">{mono}</span>
-                <span className="day-date font-mono">{formatMonthDay(date)}</span>
+                <span className="day-date font-mono">
+                  {isMobile ? String(date.getDate()).padStart(2, '0') : formatMonthDay(date)}
+                </span>
               </div>
               <span className="day-cn">{CN_SHORT_DAYS[idx]}</span>
             </div>
@@ -81,12 +105,19 @@ export function TimetableGrid({
         <div className="time-axis">
           {USST_PERIODS.map((slot, idx) => (
             <div key={slot.period} className="period-cell font-mono">
-              {idx % 2 === 0 && <span className="period-time">{slot.start}</span>}
+              {idx % 2 === 0 && (
+                <span className="period-time">
+                  {isMobile ? `${slot.period}` : slot.start}
+                </span>
+              )}
+              {isMobile && idx % 2 === 0 && (
+                <span className="period-subtime">{slot.start}</span>
+              )}
             </div>
           ))}
         </div>
 
-        {WEEKDAY_MONO.map((_, idx) => {
+        {visibleDays.map((idx) => {
           const dayNum = idx + 1;
           const isToday = isSameLocalDate(weekDates[idx], now);
           const dayCourses = activeCourses.filter((c) => c.dayOfWeek === dayNum);
@@ -126,7 +157,7 @@ export function TimetableGrid({
         {isViewingCurrentWeek && livePeriodOffset !== null && (
           <div
             className="live-line"
-            style={{ top: livePeriodOffset * PERIOD_HEIGHT + 8 }}
+            style={{ top: `calc(var(--row-h) * ${livePeriodOffset} + 8px)` }}
             aria-hidden="true"
           >
             <span className="live-line-dot" />

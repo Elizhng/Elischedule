@@ -1,4 +1,4 @@
-const CACHE_NAME = 'elischedule-shell-v7';
+const CACHE_NAME = 'elischedule-shell-v8';
 
 function scopeUrl(path) {
   return new URL(path, self.registration.scope).toString();
