@@ -1,7 +1,8 @@
 import { motion } from 'framer-motion';
 import type { Course } from '../types';
 
-const PERIOD_HEIGHT = 60;
+const PERIOD_HEIGHT = 64;
+const PAPER_EASE = [0.2, 0, 0, 1] as const;
 
 interface CourseCardProps {
   course: Course;
@@ -11,57 +12,33 @@ interface CourseCardProps {
 }
 
 export function CourseCard({ course, index, isLive, onSelect }: CourseCardProps) {
-  const top = (course.startPeriod - 1) * PERIOD_HEIGHT + 3;
+  const top = (course.startPeriod - 1) * PERIOD_HEIGHT + 6;
   const span = Math.max(1, course.endPeriod - course.startPeriod + 1);
-  const height = span * PERIOD_HEIGHT - 6;
+  const height = span * PERIOD_HEIGHT - 12;
 
   return (
     <motion.button
       type="button"
-      layoutId={`course-card-${course.id}`}
-      className={`course-card course-card--${course.colorIndex % 5}${isLive ? ' course-card--live' : ''}`}
+      className={`course-tile${isLive ? ' course-tile--live' : ''}`}
       style={{ top, height }}
-      initial={{ opacity: 0, y: 12, scale: 0.96 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.95 }}
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0 }}
       transition={{
-        type: 'spring',
-        stiffness: 340,
-        damping: 28,
-        mass: 0.85,
-        delay: Math.min(index * 0.032, 0.32),
+        duration: 0.19,
+        ease: PAPER_EASE,
+        delay: Math.min(index * 0.014, 0.12),
       }}
-      whileHover={{ y: -1.5, transition: { duration: 0.14 } }}
-      whileTap={{ scale: 0.975 }}
       onClick={() => onSelect(course)}
     >
-      {course.weekType !== 'all' && (
-        <span className="course-card-badge font-mono">
-          {course.weekType === 'odd' ? '单' : '双'}
-        </span>
-      )}
-
-      <div className="course-card-name font-quattro">{course.name}</div>
-
-      <div className="course-card-meta">
-        {course.location && (
-          <span className="course-card-loc font-mono">
-            {isLive && (
-              <span
-                className="terracotta-dot"
-                style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: '999px',
-                  backgroundColor: 'var(--accent)',
-                  display: 'inline-block',
-                }}
-              />
-            )}
-            {course.location}
+      <div className="course-tile-name">{course.name}</div>
+      <div className="course-tile-foot font-mono">
+        <span>{course.location}</span>
+        {course.weekType !== 'all' && (
+          <span className="course-tile-parity">
+            {course.weekType === 'odd' ? '单' : '双'}
           </span>
         )}
-        {course.teacher && <span className="font-quattro">{course.teacher}</span>}
       </div>
     </motion.button>
   );

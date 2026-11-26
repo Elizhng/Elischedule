@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ImagePlus, Sparkles, X } from 'lucide-react';
 import type { Course, ParseResponse } from '../types';
+import { CloseIcon, FolderUploadIcon } from './Icons';
+
+const PAPER_EASE = [0.2, 0, 0, 1] as const;
 
 const THINKING_STEPS = [
-  '正在识别上理教务网格与节次坐标…',
-  '正在提取课程名称、教师与单双周规则…',
-  '正在规范化教学楼简称（第一教学楼 → 一教）…',
+  '识别教务网格与节次坐标…',
+  '提取课程、教师与单双周规则…',
+  '规范化教学楼简称…',
 ];
 
 interface ImportModalProps {
@@ -27,7 +29,7 @@ export function ImportModal({ onClose, onImported }: ImportModalProps) {
     setStepIdx(0);
     const timer = window.setInterval(() => {
       setStepIdx((prev) => (prev + 1) % THINKING_STEPS.length);
-    }, 1800);
+    }, 1600);
     return () => window.clearInterval(timer);
   }, [isParsing]);
 
@@ -35,7 +37,7 @@ export function ImportModal({ onClose, onImported }: ImportModalProps) {
     if (!fileList || fileList.length === 0) return;
     const imageFiles = Array.from(fileList).filter((f) => f.type.startsWith('image/'));
     if (imageFiles.length === 0) {
-      setErrorMsg('请选择 PNG、JPEG 或 WebP 格式的教务系统课表截图。');
+      setErrorMsg('请选择 PNG、JPEG 或 WebP 格式的教务课表截图。');
       return;
     }
     setErrorMsg(null);
@@ -77,132 +79,102 @@ export function ImportModal({ onClose, onImported }: ImportModalProps) {
 
   return (
     <motion.div
-      className="modal-backdrop"
+      className="modal-scrim"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.18 }}
+      transition={{ duration: 0.17, ease: PAPER_EASE }}
       onClick={isParsing ? undefined : onClose}
     >
       <motion.div
-        className="modal-card"
-        initial={{ opacity: 0, y: 18, scale: 0.96 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: 12, scale: 0.97 }}
-        transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+        className="sheet-card sheet-card--narrow"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 6 }}
+        transition={{ duration: 0.195, ease: PAPER_EASE }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="modal-header">
-          <div>
-            <div className="font-mono" style={{ fontSize: 11, color: 'var(--accent)', marginBottom: 4 }}>
-              GEMINI VISION · USST PARSER
-            </div>
-            <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>截图导入上理课表</h2>
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+          <span className="font-mono" style={{ fontSize: 11, letterSpacing: '0.1em', color: 'var(--ink-3)' }}>
+            GEMINI VISION
+          </span>
           {!isParsing && (
             <button
               type="button"
-              className="icon-btn icon-btn-round"
+              className="nav-btn nav-btn--sm"
               onClick={onClose}
               aria-label="关闭导入弹窗"
             >
-              <X size={16} />
+              <CloseIcon />
             </button>
           )}
         </div>
 
-        <div className="modal-body">
-          {isParsing ? (
-            <div className="thinking-box">
-              <div className="thinking-orb claude-halo" />
-              <motion.div
-                key={stepIdx}
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.28 }}
-                className="font-mono"
-                style={{ fontSize: 13, color: 'var(--text-primary)' }}
-              >
-                {THINKING_STEPS[stepIdx]}
-              </motion.div>
-              <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                正在通过 Gemini 多模态视觉模型提取结构化 JSON，请稍候…
+        {isParsing ? (
+          <div style={{ padding: '28px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+            <div style={{ width: 10, height: 10, borderRadius: 999, backgroundColor: 'var(--book-cloth)' }} />
+            <div className="font-mono" style={{ fontSize: 12, color: 'var(--ink-2)' }}>
+              {THINKING_STEPS[stepIdx]}
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div
+              className={`dropzone${isDragging ? ' dropzone--active' : ''}`}
+              onClick={() => inputRef.current?.click()}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setIsDragging(true);
+              }}
+              onDragLeave={() => setIsDragging(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setIsDragging(false);
+                handleFiles(e.dataTransfer.files);
+              }}
+            >
+              <input
+                ref={inputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                hidden
+                onChange={(e) => handleFiles(e.target.files)}
+              />
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12, color: 'var(--ink-1)' }}>
+                <FolderUploadIcon />
+              </div>
+              <div className="font-serif" style={{ fontSize: 16, marginBottom: 4 }}>
+                选择上理教务课表截图
+              </div>
+              <div className="font-mono" style={{ fontSize: 11, color: 'var(--ink-3)' }}>
+                PNG / JPG / WebP
               </div>
             </div>
-          ) : (
-            <>
-              <div
-                className={`dropzone${isDragging ? ' dropzone--active' : ''}`}
-                onClick={() => inputRef.current?.click()}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setIsDragging(true);
-                }}
-                onDragLeave={() => setIsDragging(false)}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setIsDragging(false);
-                  handleFiles(e.dataTransfer.files);
-                }}
+
+            {files.length > 0 && (
+              <div className="font-mono" style={{ fontSize: 11.5, color: 'var(--ink-2)' }}>
+                已选择 {files.length} 张：{files.map((f) => f.name).join('、')}
+              </div>
+            )}
+
+            {errorMsg && <div className="error-banner">{errorMsg}</div>}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, paddingTop: 4 }}>
+              <button type="button" className="btn-quiet" onClick={onClose}>
+                取消
+              </button>
+              <button
+                type="button"
+                className="btn-ink"
+                disabled={files.length === 0}
+                onClick={handleSubmit}
               >
-                <input
-                  ref={inputRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  hidden
-                  onChange={(e) => handleFiles(e.target.files)}
-                />
-                <ImagePlus size={26} style={{ color: 'var(--accent)', marginBottom: 8 }} />
-                <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>
-                  点击选择或拖拽正方 / 新教务系统课表截图
-                </div>
-                <div className="font-mono" style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>
-                  支持单张长图或多张拼接 · PNG / JPG / WebP
-                </div>
-              </div>
-
-              {files.length > 0 && (
-                <div
-                  className="font-mono"
-                  style={{
-                    fontSize: 12,
-                    color: 'var(--text-secondary)',
-                    padding: '8px 12px',
-                    borderRadius: 10,
-                    backgroundColor: 'var(--bg-surface)',
-                    border: '1px solid var(--border-hairline)',
-                  }}
-                >
-                  已选择 {files.length} 张截图：{files.map((f) => f.name).join('、')}
-                </div>
-              )}
-
-              {errorMsg && <div className="error-banner">{errorMsg}</div>}
-
-              <div className="modal-footer">
-                <span className="font-mono" style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                  解析结果将自动保存在本地
-                </span>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button type="button" className="icon-btn" onClick={onClose}>
-                    取消
-                  </button>
-                  <button
-                    type="button"
-                    className="primary-btn"
-                    disabled={files.length === 0}
-                    style={{ opacity: files.length === 0 ? 0.5 : 1 }}
-                    onClick={handleSubmit}
-                  >
-                    <Sparkles size={14} />
-                    开始 AI 解析
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
+                开始解析
+              </button>
+            </div>
+          </div>
+        )}
       </motion.div>
     </motion.div>
   );

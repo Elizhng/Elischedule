@@ -1,17 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AnimatePresence, LayoutGroup } from 'framer-motion';
-import {
-  ChevronLeft,
-  ChevronRight,
-  ImagePlus,
-  Moon,
-  RotateCcw,
-  Sun,
-} from 'lucide-react';
+import { AnimatePresence } from 'framer-motion';
 import { CourseDetailModal } from './components/CourseDetailModal';
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  EmblemIcon,
+  FolderUploadIcon,
+  LocateWeekIcon,
+  MoonIcon,
+  SunIcon,
+  TimetableIcon,
+} from './components/Icons';
 import { ImportModal } from './components/ImportModal';
 import { TimetableGrid } from './components/TimetableGrid';
-import { DEFAULT_SAMPLE_COURSES, formatPeriodTimeRange, WEEKDAY_LABELS } from './constants/usst';
 import {
   clampWeek,
   getInitialState,
@@ -28,28 +29,21 @@ export function App() {
   const [staggerSeed, setStaggerSeed] = useState(0);
   const [now, setNow] = useState(() => new Date());
 
-  // Sync theme to document root & persist state locally with zero network blocking
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', state.theme);
     saveState(state);
   }, [state]);
 
-  // Refresh live clock every 60 seconds for the terracotta timeline indicator
   useEffect(() => {
     const id = window.setInterval(() => setNow(new Date()), 60_000);
     return () => window.clearInterval(id);
   }, []);
 
-  const weekCountSummary = useMemo(() => {
-    const active = state.courses.filter((c) => isCourseActiveInWeek(c, state.currentWeek));
+  const nextTodayCourse = useMemo(() => {
     const today = getTodayDayOfWeek(now);
-    const todayCourses = active
-      .filter((c) => c.dayOfWeek === today)
-      .sort((a, b) => a.startPeriod - b.startPeriod);
-    return {
-      totalThisWeek: active.length,
-      todayCourses,
-    };
+    return state.courses
+      .filter((c) => isCourseActiveInWeek(c, state.currentWeek) && c.dayOfWeek === today)
+      .sort((a, b) => a.startPeriod - b.startPeriod)[0];
   }, [state.courses, state.currentWeek, now]);
 
   const handleChangeWeek = (delta: number) => {
@@ -90,111 +84,110 @@ export function App() {
     setStaggerSeed((s) => s + 1);
   };
 
-  const handleResetSample = () => {
-    setState((prev) => ({
-      ...prev,
-      courses: DEFAULT_SAMPLE_COURSES,
-      currentWeek: 12,
-    }));
-    setStaggerSeed((s) => s + 1);
-  };
-
-  const nextTodayCourse = weekCountSummary.todayCourses[0];
+  const clockText = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
   return (
-    <LayoutGroup>
-      <div className="app-shell">
-        <header className="app-header">
-          <div className="header-inner">
-            <div className="brand-group">
-              <h1 className="brand-title">
-                <span className="brand-dot" />
-                Elischedule
-              </h1>
-              <span className="brand-meta font-mono">{state.term}</span>
-            </div>
+    <div className="app-shell">
+      <aside className="app-rail" aria-label="主导航">
+        <div className="rail-group">
+          <button
+            type="button"
+            className="nav-btn"
+            onClick={() => setState((prev) => ({ ...prev, currentWeek: 12 }))}
+            title="Elischedule"
+            aria-label="Elischedule"
+          >
+            <EmblemIcon />
+          </button>
 
-            <div className="week-nav" role="group" aria-label="周次切换">
+          <div className="rail-divider" />
+
+          <button
+            type="button"
+            className="nav-btn"
+            data-active="true"
+            title="周课表"
+            aria-label="周课表"
+          >
+            <TimetableIcon />
+          </button>
+
+          <button
+            type="button"
+            className="nav-btn"
+            onClick={() => setShowImport(true)}
+            title="导入教务截图"
+            aria-label="导入教务截图"
+          >
+            <FolderUploadIcon />
+          </button>
+
+          <button
+            type="button"
+            className="nav-btn"
+            onClick={() => setState((prev) => ({ ...prev, currentWeek: 12 }))}
+            title="回到当前周"
+            aria-label="回到当前周"
+          >
+            <LocateWeekIcon />
+          </button>
+        </div>
+
+        <button
+          type="button"
+          className="nav-btn"
+          onClick={handleToggleTheme}
+          title={state.theme === 'light' ? '切换 Slate 暗色纸感' : '切换 Ivory 日间纸感'}
+          aria-label="切换主题"
+        >
+          {state.theme === 'light' ? <MoonIcon /> : <SunIcon />}
+        </button>
+      </aside>
+
+      <div className="app-workspace">
+        <header className="app-header">
+          <div className="header-left">
+            <h1 className="week-heading font-serif">
+              Week {String(state.currentWeek).padStart(2, '0')}
+            </h1>
+            <div className="week-arrows" role="group" aria-label="周次切换">
               <button
                 type="button"
-                className="icon-btn icon-btn-round"
+                className="nav-btn nav-btn--sm"
                 onClick={() => handleChangeWeek(-1)}
                 disabled={state.currentWeek <= 1}
                 aria-label="上一周"
               >
-                <ChevronLeft size={15} />
+                <ChevronLeftIcon />
               </button>
               <button
                 type="button"
-                className="week-label font-mono"
-                onClick={() => setState((prev) => ({ ...prev, currentWeek: 12 }))}
-                title="点击回到第 12 周"
-              >
-                第 {String(state.currentWeek).padStart(2, '0')} 周
-              </button>
-              <button
-                type="button"
-                className="icon-btn icon-btn-round"
+                className="nav-btn nav-btn--sm"
                 onClick={() => handleChangeWeek(1)}
                 disabled={state.currentWeek >= state.totalWeeks}
                 aria-label="下一周"
               >
-                <ChevronRight size={15} />
+                <ChevronRightIcon />
               </button>
             </div>
+            <span className="parity-tag font-mono">
+              {state.currentWeek % 2 === 1 ? 'ODD' : 'EVEN'}
+            </span>
+          </div>
 
-            <div className="header-actions">
-              <button
-                type="button"
-                className="icon-btn icon-btn-round"
-                onClick={handleToggleTheme}
-                title={state.theme === 'light' ? '切换暖炭黑夜间模式' : '切换羊皮纸日间模式'}
-                aria-label="切换主题"
-              >
-                {state.theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
-              </button>
-              <button
-                type="button"
-                className="icon-btn icon-btn-round"
-                onClick={handleResetSample}
-                title="恢复上理示例课表"
-                aria-label="恢复示例课表"
-              >
-                <RotateCcw size={15} />
-              </button>
-              <button
-                type="button"
-                className="primary-btn"
-                onClick={() => setShowImport(true)}
-              >
-                <ImagePlus size={15} />
-                导入课表
-              </button>
-            </div>
+          <div className="live-coordinate font-mono">
+            <span className="live-dot" />
+            <span>{clockText}</span>
+            {nextTodayCourse && (
+              <>
+                <span style={{ color: 'var(--ink-3)' }}>/</span>
+                <span>{nextTodayCourse.location}</span>
+              </>
+            )}
           </div>
         </header>
 
         <main className="main-container">
-          <div className="status-strip">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <span className="status-pill font-mono">
-                本周 {weekCountSummary.totalThisWeek} 节 · 本地秒开
-              </span>
-              {nextTodayCourse ? (
-                <span className="status-pill status-pill--accent font-mono">
-                  今日 {WEEKDAY_LABELS[nextTodayCourse.dayOfWeek - 1]} · {nextTodayCourse.name} ·{' '}
-                  {nextTodayCourse.location} (
-                  {formatPeriodTimeRange(nextTodayCourse.startPeriod, nextTodayCourse.endPeriod)})
-                </span>
-              ) : (
-                <span className="status-pill font-mono">今日无排课 · 享受专注时光</span>
-              )}
-            </div>
-            <span className="font-mono" style={{ color: 'var(--text-muted)', fontSize: 11.5 }}>
-              左右拖拽网格可切换周次 · 点击卡片展开详情
-            </span>
-          </div>
-
           <TimetableGrid
             courses={state.courses}
             currentWeek={state.currentWeek}
@@ -204,29 +197,29 @@ export function App() {
             onSwipeWeek={handleChangeWeek}
           />
         </main>
-
-        <AnimatePresence>
-          {selectedCourse && (
-            <CourseDetailModal
-              key={selectedCourse.id}
-              course={selectedCourse}
-              onClose={() => setSelectedCourse(null)}
-              onSave={handleSaveCourse}
-              onDelete={handleDeleteCourse}
-            />
-          )}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {showImport && (
-            <ImportModal
-              onClose={() => setShowImport(false)}
-              onImported={handleImported}
-            />
-          )}
-        </AnimatePresence>
       </div>
-    </LayoutGroup>
+
+      <AnimatePresence>
+        {selectedCourse && (
+          <CourseDetailModal
+            key={selectedCourse.id}
+            course={selectedCourse}
+            onClose={() => setSelectedCourse(null)}
+            onSave={handleSaveCourse}
+            onDelete={handleDeleteCourse}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showImport && (
+          <ImportModal
+            onClose={() => setShowImport(false)}
+            onImported={handleImported}
+          />
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
 

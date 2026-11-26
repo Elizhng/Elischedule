@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, Trash2, X } from 'lucide-react';
 import {
   formatPeriodTimeRange,
   shortenUSSTLocation,
-  WEEKDAY_LABELS,
+  WEEKDAY_MONO,
 } from '../constants/usst';
 import { formatWeekSummary } from '../store/localStore';
 import type { Course, WeekType } from '../types';
+import { CloseIcon } from './Icons';
+
+const PAPER_EASE = [0.2, 0, 0, 1] as const;
 
 interface CourseDetailModalProps {
   course: Course;
@@ -56,139 +58,140 @@ export function CourseDetailModal({
 
   return (
     <motion.div
-      className="modal-backdrop"
+      className="modal-scrim"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.18 }}
+      transition={{ duration: 0.17, ease: PAPER_EASE }}
       onClick={onClose}
     >
       <motion.div
-        layoutId={`course-card-${course.id}`}
-        className="modal-card"
-        transition={{ type: 'spring', stiffness: 320, damping: 28, mass: 0.9 }}
+        className="sheet-card"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 6 }}
+        transition={{ duration: 0.195, ease: PAPER_EASE }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="modal-header">
+        <div className="sheet-head">
           <div>
-            <div className="font-mono" style={{ fontSize: 11, color: 'var(--accent)', marginBottom: 4 }}>
-              {WEEKDAY_LABELS[course.dayOfWeek - 1]} · 第 {course.startPeriod}-{course.endPeriod} 节 ·{' '}
-              {formatPeriodTimeRange(course.startPeriod, course.endPeriod)}
+            <div className="sheet-eyebrow font-mono">
+              {WEEKDAY_MONO[course.dayOfWeek - 1]} · {formatPeriodTimeRange(course.startPeriod, course.endPeriod)} · PERIOD {course.startPeriod}–{course.endPeriod}
             </div>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{course.name}</h2>
-            <div className="font-mono" style={{ fontSize: 11.5, color: 'var(--text-secondary)', marginTop: 4 }}>
-              {formatWeekSummary(course.weeks, weekType)}
-            </div>
+            <h2 className="sheet-title font-serif">{name || course.name}</h2>
+            <p className="sheet-subtitle">
+              {teacher || '未指定教师'} · {location || '未指定教室'} · {formatWeekSummary(course.weeks, weekType)}
+            </p>
           </div>
           <button
             type="button"
-            className="icon-btn icon-btn-round"
+            className="nav-btn nav-btn--sm"
             onClick={onClose}
             aria-label="关闭详情"
           >
-            <X size={16} />
+            <CloseIcon />
           </button>
         </div>
 
-        <div className="modal-body">
-          <label className="field-label">
-            课程名称
-            <input
-              className="field-input"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </label>
-
-          <div className="field-row">
-            <label className="field-label">
-              任课教师
+        <div className="sheet-body">
+          <div className="ledger-row">
+            <label>
+              <span className="ledger-label font-mono">Instructor</span>
               <input
-                className="field-input"
+                className="ledger-input"
                 value={teacher}
                 onChange={(e) => setTeacher(e.target.value)}
-                placeholder="如：张明远"
+                placeholder="任课教师"
               />
             </label>
 
-            <label className="field-label">
-              <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>教室地点</span>
+            <label>
+              <span
+                className="ledger-label font-mono"
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+              >
+                <span>Location</span>
                 <button
                   type="button"
                   onClick={() => setLocation(shortenUSSTLocation(location))}
                   style={{
                     border: 'none',
                     background: 'transparent',
-                    color: 'var(--accent)',
-                    fontSize: 11,
+                    color: 'var(--book-cloth)',
+                    fontSize: 10,
                     cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 3,
                     padding: 0,
                   }}
                 >
-                  <Sparkles size={11} />
-                  上理简称
+                  简称化
                 </button>
               </span>
               <input
-                className="field-input font-mono"
+                className="ledger-input font-mono"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                placeholder="如：一教 204"
+                placeholder="一教 204"
               />
             </label>
           </div>
 
-          <div className="field-label">
-            单双周规则
+          <div className="ledger-inline">
+            <span className="ledger-label font-mono" style={{ marginBottom: 0 }}>
+              Cadence
+            </span>
             <div className="segmented">
               {(['all', 'odd', 'even'] as WeekType[]).map((wt) => (
                 <button
                   key={wt}
                   type="button"
-                  className={`segmented-btn${weekType === wt ? ' segmented-btn--active' : ''}`}
+                  className={`segmented-btn font-mono${weekType === wt ? ' segmented-btn--active' : ''}`}
                   onClick={() => setWeekType(wt)}
                 >
-                  {wt === 'all' ? '全周' : wt === 'odd' ? '仅单周' : '仅双周'}
+                  {wt.toUpperCase()}
                 </button>
               ))}
             </div>
           </div>
 
-          <label className="field-label">
-            课程备注
+          <label>
+            <span className="ledger-label font-mono">Reading &amp; Notes</span>
             <textarea
-              className="field-textarea"
+              className="ledger-notes font-serif"
               rows={3}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="记录教材版本、教学楼路线或随堂考试提醒…"
+              placeholder="记录教材版本、阅读章节或考勤备注…"
             />
           </label>
 
-          <div className="modal-footer">
-            <button
-              type="button"
-              className="icon-btn"
-              style={{ color: 'var(--mineral-3-ink)' }}
-              onClick={() => {
-                onDelete(course.id);
-                onClose();
-              }}
-            >
-              <Trash2 size={14} />
-              删除课程
-            </button>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <button
+                type="button"
+                className="btn-quiet btn-danger"
+                style={{ paddingLeft: 0 }}
+                onClick={() => {
+                  onDelete(course.id);
+                  onClose();
+                }}
+              >
+                删除
+              </button>
+              <input
+                className="ledger-input"
+                style={{ fontSize: 12, color: 'var(--ink-3)', width: 140 }}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                aria-label="编辑课程全称"
+              />
+            </div>
 
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button type="button" className="icon-btn" onClick={onClose}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button type="button" className="btn-quiet" onClick={onClose}>
                 取消
               </button>
-              <button type="button" className="primary-btn" onClick={handleSave}>
-                保存修改
+              <button type="button" className="btn-ink" onClick={handleSave}>
+                保存
               </button>
             </div>
           </div>
