@@ -2,7 +2,7 @@ import { shortenUSSTLocation } from '../constants/usst';
 import type { Course, ParseResponse, WeekType } from '../types';
 
 const KEY_STORAGE = 'elischedule.v1.gemini_api_key';
-const DEFAULT_MODEL = 'gemini-2.5-flash';
+const DEFAULT_MODEL = 'gemini-3.8-flash';
 
 const USST_PROMPT = `你是一位专门解析上海理工大学（USST）正方教务系统 / 新教务系统课程表截图的精确结构化提取引擎。
 
