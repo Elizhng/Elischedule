@@ -2,7 +2,7 @@ import { shortenUSSTLocation } from '../constants/usst';
 import type { Course, ParseResponse, WeekType } from '../types';
 
 const KEY_STORAGE = 'elischedule.v1.gemini_api_key';
-const DEFAULT_MODEL = 'gemini-3.8-flash';
+const DEFAULT_MODEL = 'gemini-4-hydrogen';
 
 const USST_PROMPT = `你是一位专门解析上海理工大学（USST）正方教务系统 / 新教务系统课程表截图的精确结构化提取引擎。
 
@@ -66,7 +66,7 @@ async function fileToCompressedBase64(file: File): Promise<{ mimeType: string; d
   if (typeof document !== 'undefined' && typeof createImageBitmap === 'function') {
     try {
       const bitmap = await createImageBitmap(file);
-      const maxDim = 1600;
+      const maxDim = 1280;
       const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
       const w = Math.max(1, Math.round(bitmap.width * scale));
       const h = Math.max(1, Math.round(bitmap.height * scale));
@@ -79,7 +79,7 @@ async function fileToCompressedBase64(file: File): Promise<{ mimeType: string; d
         ctx.fillRect(0, 0, w, h);
         ctx.drawImage(bitmap, 0, 0, w, h);
         bitmap.close();
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.86);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
         const commaIdx = dataUrl.indexOf(',');
         return {
           mimeType: 'image/jpeg',
@@ -168,10 +168,12 @@ function scoreModel(name: string): number {
     return -1;
   }
   let score = 10;
+  if (lower.includes('4-hydrogen') || lower.includes('hydrogen')) score += 100;
   if (lower.includes('flash')) score += 40;
   if (lower.includes('flash-lite') || lower.includes('lite')) score += 15;
   if (lower.includes('pro')) score += 20;
-  if (lower.includes('3.8')) score += 30;
+  if (lower.includes('4-')) score += 35;
+  else if (lower.includes('3.8')) score += 30;
   else if (lower.includes('3.')) score += 25;
   else if (lower.includes('2.5')) score += 15;
   else if (lower.includes('2.0')) score += 10;
@@ -197,7 +199,7 @@ async function discoverAvailableModels(apiKey: string, preferredModel: string): 
     if (candidates.length === 0) return [preferredModel];
     const ordered = candidates.includes(preferredModel)
       ? [preferredModel, ...candidates.filter((m) => m !== preferredModel)]
-      : candidates;
+      : [preferredModel, ...candidates];
     return ordered.slice(0, 6);
   } catch {
     return [preferredModel];
@@ -229,25 +231,33 @@ export async function parseScheduleDirectWithGemini(
     discoverAvailableModels(trimmedKey, preferredModel),
   ]);
 
-  const requestBody = JSON.stringify({
-    system_instruction: { parts: [{ text: USST_PROMPT }] },
-    contents: [
-      {
-        parts: [
-          { text: '请提取以下上海理工大学教务系统课程表截图中的所有课程，严格按照 JSON 结构输出。' },
-          ...imageParts,
-        ],
-      },
-    ],
-    generationConfig: {
-      temperature: 0.1,
-      responseMimeType: 'application/json',
-    },
-  });
-
   let lastError = 'Gemini API 请求失败，请稍后重试。';
 
   for (const model of modelsToTry) {
+    const isGemini4 = model.toLowerCase().includes('gemini-4');
+    const generationConfig: Record<string, unknown> = isGemini4
+      ? {
+          responseMimeType: 'application/json',
+          thinkingConfig: { thinkingLevel: 'LOW' },
+        }
+      : {
+          temperature: 0.1,
+          responseMimeType: 'application/json',
+        };
+
+    const requestBody = JSON.stringify({
+      system_instruction: { parts: [{ text: USST_PROMPT }] },
+      contents: [
+        {
+          parts: [
+            { text: '请提取以下上海理工大学教务系统课程表截图中的所有课程，严格按照 JSON 结构输出。' },
+            ...imageParts,
+          ],
+        },
+      ],
+      generationConfig,
+    });
+
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(trimmedKey)}`;
     for (let attempt = 0; attempt < 2; attempt++) {
       let res: Response;
@@ -259,7 +269,7 @@ export async function parseScheduleDirectWithGemini(
         });
       } catch {
         throw new Error(
-          '连接 Gemini API 失败（Safari Load failed）。请确认当前网络/代理可访问 generativelanguage.googleapis.com 后重试。'
+          '连接 Gemini API 失败（Safari Load failed）。请确认当前手机网络/代理已开启且可访问 generativelanguage.googleapis.com 后重试。'
         );
       }
 

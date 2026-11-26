@@ -17,7 +17,7 @@ import (
 
 const (
 	DefaultBaseURL = "https://generativelanguage.googleapis.com"
-	DefaultModel   = "gemini-3.8-flash"
+	DefaultModel   = "gemini-4-hydrogen"
 )
 
 var ErrMissingAPIKey = errors.New("GEMINI_API_KEY is not configured")
