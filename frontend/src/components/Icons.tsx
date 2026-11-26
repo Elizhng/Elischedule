@@ -28,6 +28,17 @@ export function TimetableIcon() {
   );
 }
 
+export function DayListIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 6.5h14" />
+      <path d="M5 12h10" />
+      <path d="M5 17.5h12" />
+      <circle cx="18.5" cy="12" r="1.4" fill="var(--book-cloth)" stroke="none" />
+    </svg>
+  );
+}
+
 export function FolderUploadIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
