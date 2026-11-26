@@ -1,0 +1,1 @@
+{"root":["./src/App.tsx","./src/main.tsx","./src/types.ts","./src/components/CourseCard.tsx","./src/components/CourseDetailModal.tsx","./src/components/ImportModal.tsx","./src/components/TimetableGrid.tsx","./src/constants/usst.ts","./src/store/localStore.test.ts","./src/store/localStore.ts"],"version":"5.9.3"}
