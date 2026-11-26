@@ -61,13 +61,46 @@ export function saveGeminiKey(key: string): void {
   }
 }
 
-function fileToBase64(file: File): Promise<string> {
+async function fileToCompressedBase64(file: File): Promise<{ mimeType: string; data: string }> {
+  // Compress large Retina screenshots via canvas to avoid Safari fetch payload/timeout drops
+  if (typeof document !== 'undefined' && typeof createImageBitmap === 'function') {
+    try {
+      const bitmap = await createImageBitmap(file);
+      const maxDim = 1600;
+      const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
+      const w = Math.max(1, Math.round(bitmap.width * scale));
+      const h = Math.max(1, Math.round(bitmap.height * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(bitmap, 0, 0, w, h);
+        bitmap.close();
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.86);
+        const commaIdx = dataUrl.indexOf(',');
+        return {
+          mimeType: 'image/jpeg',
+          data: commaIdx >= 0 ? dataUrl.slice(commaIdx + 1) : dataUrl,
+        };
+      }
+      bitmap.close();
+    } catch {
+      // Fallback to raw FileReader below
+    }
+  }
+
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
       const result = String(reader.result || '');
       const commaIdx = result.indexOf(',');
-      resolve(commaIdx >= 0 ? result.slice(commaIdx + 1) : result);
+      resolve({
+        mimeType: file.type || 'image/png',
+        data: commaIdx >= 0 ? result.slice(commaIdx + 1) : result,
+      });
     };
     reader.onerror = () => reject(new Error('读取图片文件失败'));
     reader.readAsDataURL(file);
@@ -127,37 +160,46 @@ export async function parseScheduleDirectWithGemini(
   }
 
   const imageParts = await Promise.all(
-    files.map(async (f) => ({
-      inline_data: {
-        mime_type: f.type || 'image/png',
-        data: await fileToBase64(f),
-      },
-    }))
+    files.map(async (f) => {
+      const compressed = await fileToCompressedBase64(f);
+      return {
+        inline_data: {
+          mime_type: compressed.mimeType,
+          data: compressed.data,
+        },
+      };
+    })
   );
 
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
-  const res = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-goog-api-key': trimmedKey,
-    },
-    body: JSON.stringify({
-      system_instruction: { parts: [{ text: USST_PROMPT }] },
-      contents: [
-        {
-          parts: [
-            { text: '请提取以下上海理工大学教务系统课程表截图中的所有课程，严格按照 JSON 结构输出。' },
-            ...imageParts,
-          ],
-        },
-      ],
-      generationConfig: {
-        temperature: 0.1,
-        responseMimeType: 'application/json',
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(trimmedKey)}`;
+  let res: Response;
+  try {
+    res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
-    }),
-  });
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: USST_PROMPT }] },
+        contents: [
+          {
+            parts: [
+              { text: '请提取以下上海理工大学教务系统课程表截图中的所有课程，严格按照 JSON 结构输出。' },
+              ...imageParts,
+            ],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.1,
+          responseMimeType: 'application/json',
+        },
+      }),
+    });
+  } catch {
+    throw new Error(
+      '连接 Gemini API 失败（Safari Load failed）。请确认当前网络/代理可访问 generativelanguage.googleapis.com 后重试。'
+    );
+  }
 
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
