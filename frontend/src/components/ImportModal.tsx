@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import type { Course, ParseResponse } from '../types';
+import {
+  getSavedGeminiKey,
+  parseScheduleDirectWithGemini,
+  saveGeminiKey,
+} from '../utils/geminiDirect';
 import { CloseIcon, FolderUploadIcon } from './Icons';
 
 const PAPER_EASE = [0.2, 0, 0, 1] as const;
@@ -19,6 +24,7 @@ interface ImportModalProps {
 export function ImportModal({ onClose, onImported }: ImportModalProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [files, setFiles] = useState<File[]>([]);
+  const [apiKey, setApiKey] = useState(() => getSavedGeminiKey());
   const [isDragging, setIsDragging] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
   const [stepIdx, setStepIdx] = useState(0);
@@ -50,20 +56,33 @@ export function ImportModal({ onClose, onImported }: ImportModalProps) {
     setErrorMsg(null);
 
     try {
-      const formData = new FormData();
-      files.forEach((f) => formData.append('images', f));
+      let parsed: ParseResponse;
+      const trimmedKey = apiKey.trim();
 
-      const res = await fetch('/api/parse-schedule', {
-        method: 'POST',
-        body: formData,
-      });
+      if (trimmedKey) {
+        saveGeminiKey(trimmedKey);
+        parsed = await parseScheduleDirectWithGemini(files, trimmedKey);
+      } else {
+        const formData = new FormData();
+        files.forEach((f) => formData.append('images', f));
 
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.message || `解析请求失败（HTTP ${res.status}）`);
+        const res = await fetch('/api/parse-schedule', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          if (res.status === 404 || res.status === 405 || res.status === 503) {
+            throw new Error(
+              '当前为静态托管模式（GitHub Pages），请在下方填入你的免费 Gemini API Key（仅保存在本机浏览器）即可直接解析。'
+            );
+          }
+          throw new Error(data.message || `解析请求失败（HTTP ${res.status}）`);
+        }
+        parsed = data as ParseResponse;
       }
 
-      const parsed = data as ParseResponse;
       if (!Array.isArray(parsed.courses) || parsed.courses.length === 0) {
         throw new Error('未在截图中识别到有效课程，请尝试更清晰的正方/新教务系统课表长图。');
       }
@@ -157,6 +176,31 @@ export function ImportModal({ onClose, onImported }: ImportModalProps) {
                 已选择 {files.length} 张：{files.map((f) => f.name).join('、')}
               </div>
             )}
+
+            <label style={{ display: 'block', paddingTop: 4, borderTop: '1px solid var(--line)' }}>
+              <span
+                className="ledger-label font-mono"
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}
+              >
+                <span>Gemini API Key (本机保存)</span>
+                <a
+                  href="https://aistudio.google.com/apikey"
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ color: 'var(--book-cloth)', textDecoration: 'none' }}
+                >
+                  免费获取 ↗
+                </a>
+              </span>
+              <input
+                type="password"
+                className="ledger-input font-mono"
+                style={{ fontSize: 12.5 }}
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="AIza...（有自建后端时可留空）"
+              />
+            </label>
 
             {errorMsg && <div className="error-banner">{errorMsg}</div>}
 

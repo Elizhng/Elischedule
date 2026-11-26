@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { computeCurrentWeek, normalizeToMonday } from '../store/localStore';
 import type { Course } from '../types';
+import { getSavedGeminiKey, saveGeminiKey } from '../utils/geminiDirect';
 import { downloadScheduleICS } from '../utils/ics';
 import { CalendarExportIcon, CloseIcon } from './Icons';
 
@@ -31,12 +32,14 @@ export function TermSettingsModal({
   const [draftTerm, setDraftTerm] = useState(term);
   const [draftStart, setDraftStart] = useState(termStartDate);
   const [draftTotal, setDraftTotal] = useState(totalWeeks);
+  const [draftKey, setDraftKey] = useState(() => getSavedGeminiKey());
   const [exported, setExported] = useState(false);
 
   const normalizedMonday = normalizeToMonday(draftStart);
   const computedWeek = computeCurrentWeek(normalizedMonday, now, draftTotal);
 
   const handleSave = () => {
+    saveGeminiKey(draftKey);
     onSave({
       term: draftTerm.trim() || term,
       termStartDate: normalizedMonday,
@@ -126,6 +129,31 @@ export function TermSettingsModal({
               ))}
             </div>
           </div>
+
+          <label style={{ paddingBottom: 16, borderBottom: '1px solid var(--line)' }}>
+            <span
+              className="ledger-label font-mono"
+              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+            >
+              <span>Gemini API Key (仅本机存储)</span>
+              <a
+                href="https://aistudio.google.com/apikey"
+                target="_blank"
+                rel="noreferrer"
+                style={{ color: 'var(--book-cloth)', textDecoration: 'none' }}
+              >
+                获取免费 Key ↗
+              </a>
+            </span>
+            <input
+              type="password"
+              className="ledger-input font-mono"
+              style={{ fontSize: 13 }}
+              value={draftKey}
+              onChange={(e) => setDraftKey(e.target.value)}
+              placeholder="用于 GitHub Pages 直连 Gemini 解析截图"
+            />
+          </label>
 
           <div className="ledger-inline">
             <div>
