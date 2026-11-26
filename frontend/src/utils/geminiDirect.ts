@@ -149,15 +149,59 @@ function normalizeParsedCourses(raw: Partial<Course>[]): Course[] {
     });
 }
 
-const FALLBACK_MODELS = [
-  'gemini-3.8-flash',
-  'gemini-3.8-flash-lite',
-  'gemini-3.5-flash',
-  'gemini-3.0-flash',
-];
-
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function scoreModel(name: string): number {
+  const lower = name.toLowerCase();
+  if (
+    !lower.includes('gemini') ||
+    lower.includes('embedding') ||
+    lower.includes('tts') ||
+    lower.includes('imagen') ||
+    lower.includes('veo') ||
+    lower.includes('aqa') ||
+    lower.includes('robotics') ||
+    lower.includes('audio')
+  ) {
+    return -1;
+  }
+  let score = 10;
+  if (lower.includes('flash')) score += 40;
+  if (lower.includes('flash-lite') || lower.includes('lite')) score += 15;
+  if (lower.includes('pro')) score += 20;
+  if (lower.includes('3.8')) score += 30;
+  else if (lower.includes('3.')) score += 25;
+  else if (lower.includes('2.5')) score += 15;
+  else if (lower.includes('2.0')) score += 10;
+  if (lower.includes('preview') || lower.includes('exp')) score -= 3;
+  return score;
+}
+
+async function discoverAvailableModels(apiKey: string, preferredModel: string): Promise<string[]> {
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}&pageSize=50`
+    );
+    if (!res.ok) return [preferredModel];
+    const data = (await res.json()) as {
+      models?: Array<{ name?: string; supportedGenerationMethods?: string[] }>;
+    };
+    const candidates = (data.models || [])
+      .filter((m) => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
+      .map((m) => String(m.name || '').replace(/^models\//, ''))
+      .filter((id) => id && scoreModel(id) > 0)
+      .sort((a, b) => scoreModel(b) - scoreModel(a));
+
+    if (candidates.length === 0) return [preferredModel];
+    const ordered = candidates.includes(preferredModel)
+      ? [preferredModel, ...candidates.filter((m) => m !== preferredModel)]
+      : candidates;
+    return ordered.slice(0, 6);
+  } catch {
+    return [preferredModel];
+  }
 }
 
 export async function parseScheduleDirectWithGemini(
@@ -170,22 +214,20 @@ export async function parseScheduleDirectWithGemini(
     throw new Error('请先输入你的 Gemini API Key');
   }
 
-  const imageParts = await Promise.all(
-    files.map(async (f) => {
-      const compressed = await fileToCompressedBase64(f);
-      return {
-        inline_data: {
-          mime_type: compressed.mimeType,
-          data: compressed.data,
-        },
-      };
-    })
-  );
-
-  const modelsToTry = [
-    preferredModel,
-    ...FALLBACK_MODELS.filter((m) => m !== preferredModel),
-  ];
+  const [imageParts, modelsToTry] = await Promise.all([
+    Promise.all(
+      files.map(async (f) => {
+        const compressed = await fileToCompressedBase64(f);
+        return {
+          inline_data: {
+            mime_type: compressed.mimeType,
+            data: compressed.data,
+          },
+        };
+      })
+    ),
+    discoverAvailableModels(trimmedKey, preferredModel),
+  ]);
 
   const requestBody = JSON.stringify({
     system_instruction: { parts: [{ text: USST_PROMPT }] },
@@ -234,7 +276,7 @@ export async function parseScheduleDirectWithGemini(
 
       lastError = body?.error?.message || `Gemini API 请求失败（HTTP ${res.status}）`;
 
-      // Temporary overload (503/429): brief backoff then retry or fallback to next model
+      // Temporary overload (503/429): brief backoff then retry or fallback to next real model
       if (res.status === 503 || res.status === 429) {
         if (attempt === 0) {
           await sleep(1200);
@@ -243,15 +285,15 @@ export async function parseScheduleDirectWithGemini(
         break;
       }
 
-      // Model unavailable (404/400 model error): try next fallback model immediately
-      if (res.status === 404) {
+      // Model unavailable for this key (404/400): try next real model from ListModels
+      if (res.status === 404 || res.status === 400) {
         break;
       }
 
-      // Auth/key error (401/403) or other fatal error: surface immediately
+      // Auth/key error (401/403): surface immediately
       throw new Error(lastError);
     }
   }
 
-  throw new Error(lastError);
+  throw new Error(`当前可用模型（${modelsToTry.join(', ')}）均暂时繁忙或不可用：${lastError}`);
 }
