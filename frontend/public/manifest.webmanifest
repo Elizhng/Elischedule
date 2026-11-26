@@ -1,0 +1,17 @@
+{
+  "name": "Elischedule · 上理课表",
+  "short_name": "Elischedule",
+  "description": "上海理工大学暖调纸感课程表与 AI 视觉课表解析",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FAF9F5",
+  "theme_color": "#D97757",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
