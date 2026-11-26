@@ -1,0 +1,3 @@
+{
+  "install": "set -e; if [ -f go.mod ]; then go mod download; fi; if [ -f Cargo.toml ]; then cargo fetch; fi; if [ -f package.json ]; then if [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile; else npm install --no-audit --no-fund; fi; fi; go version && cargo --version && node -v && pnpm -v"
+}
