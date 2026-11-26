@@ -149,10 +149,21 @@ function normalizeParsedCourses(raw: Partial<Course>[]): Course[] {
     });
 }
 
+const FALLBACK_MODELS = [
+  'gemini-3.8-flash',
+  'gemini-3.8-flash-lite',
+  'gemini-3.5-flash',
+  'gemini-3.0-flash',
+];
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
 export async function parseScheduleDirectWithGemini(
   files: File[],
   apiKey: string,
-  model = DEFAULT_MODEL
+  preferredModel = DEFAULT_MODEL
 ): Promise<ParseResponse> {
   const trimmedKey = apiKey.trim();
   if (!trimmedKey) {
@@ -171,48 +182,76 @@ export async function parseScheduleDirectWithGemini(
     })
   );
 
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(trimmedKey)}`;
-  let res: Response;
-  try {
-    res = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: USST_PROMPT }] },
-        contents: [
-          {
-            parts: [
-              { text: '请提取以下上海理工大学教务系统课程表截图中的所有课程，严格按照 JSON 结构输出。' },
-              ...imageParts,
-            ],
-          },
+  const modelsToTry = [
+    preferredModel,
+    ...FALLBACK_MODELS.filter((m) => m !== preferredModel),
+  ];
+
+  const requestBody = JSON.stringify({
+    system_instruction: { parts: [{ text: USST_PROMPT }] },
+    contents: [
+      {
+        parts: [
+          { text: '请提取以下上海理工大学教务系统课程表截图中的所有课程，严格按照 JSON 结构输出。' },
+          ...imageParts,
         ],
-        generationConfig: {
-          temperature: 0.1,
-          responseMimeType: 'application/json',
-        },
-      }),
-    });
-  } catch {
-    throw new Error(
-      '连接 Gemini API 失败（Safari Load failed）。请确认当前网络/代理可访问 generativelanguage.googleapis.com 后重试。'
-    );
+      },
+    ],
+    generationConfig: {
+      temperature: 0.1,
+      responseMimeType: 'application/json',
+    },
+  });
+
+  let lastError = 'Gemini API 请求失败，请稍后重试。';
+
+  for (const model of modelsToTry) {
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(trimmedKey)}`;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      let res: Response;
+      try {
+        res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: requestBody,
+        });
+      } catch {
+        throw new Error(
+          '连接 Gemini API 失败（Safari Load failed）。请确认当前网络/代理可访问 generativelanguage.googleapis.com 后重试。'
+        );
+      }
+
+      const body = await res.json().catch(() => ({}));
+      if (res.ok) {
+        const text: string = body?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
+        const parsed = JSON.parse(cleaned) as { term?: string; courses?: Partial<Course>[] };
+        return {
+          term: parsed.term,
+          courses: normalizeParsedCourses(Array.isArray(parsed.courses) ? parsed.courses : []),
+        };
+      }
+
+      lastError = body?.error?.message || `Gemini API 请求失败（HTTP ${res.status}）`;
+
+      // Temporary overload (503/429): brief backoff then retry or fallback to next model
+      if (res.status === 503 || res.status === 429) {
+        if (attempt === 0) {
+          await sleep(1200);
+          continue;
+        }
+        break;
+      }
+
+      // Model unavailable (404/400 model error): try next fallback model immediately
+      if (res.status === 404) {
+        break;
+      }
+
+      // Auth/key error (401/403) or other fatal error: surface immediately
+      throw new Error(lastError);
+    }
   }
 
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const msg = body?.error?.message || `Gemini API 请求失败（HTTP ${res.status}）`;
-    throw new Error(msg);
-  }
-
-  const text: string = body?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-  const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
-  const parsed = JSON.parse(cleaned) as { term?: string; courses?: Partial<Course>[] };
-
-  return {
-    term: parsed.term,
-    courses: normalizeParsedCourses(Array.isArray(parsed.courses) ? parsed.courses : []),
-  };
+  throw new Error(lastError);
 }
