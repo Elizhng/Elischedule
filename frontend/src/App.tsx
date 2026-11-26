@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { CourseDetailModal } from './components/CourseDetailModal';
+import { DayAgendaView } from './components/DayAgendaView';
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
+  DayListIcon,
   EmblemIcon,
   FolderUploadIcon,
   LocateWeekIcon,
@@ -46,6 +48,10 @@ function makeDraftCourse(dayOfWeek: number, startPeriod: number): Course {
 
 export function App() {
   const [state, setState] = useState<ScheduleState>(() => getInitialState());
+  const [viewMode, setViewMode] = useState<'week' | 'day'>(() =>
+    typeof window !== 'undefined' && window.innerWidth < 720 ? 'day' : 'week'
+  );
+  const [selectedDay, setSelectedDay] = useState<number>(() => getTodayDayOfWeek(new Date()));
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [draftCourse, setDraftCourse] = useState<Course | null>(null);
   const [showImport, setShowImport] = useState(false);
@@ -82,11 +88,29 @@ export function App() {
     }));
   };
 
+  const handleSwipeDay = (delta: number) => {
+    const next = selectedDay + delta;
+    if (next > 7) {
+      if (state.currentWeek < state.totalWeeks) {
+        handleChangeWeek(1);
+        setSelectedDay(1);
+      }
+    } else if (next < 1) {
+      if (state.currentWeek > 1) {
+        handleChangeWeek(-1);
+        setSelectedDay(7);
+      }
+    } else {
+      setSelectedDay(next);
+    }
+  };
+
   const handleJumpToday = () => {
     setState((prev) => ({
       ...prev,
       currentWeek: computeCurrentWeek(prev.termStartDate, now, prev.totalWeeks),
     }));
+    setSelectedDay(getTodayDayOfWeek(now));
   };
 
   const handleToggleTheme = () => {
@@ -156,7 +180,7 @@ export function App() {
         <div className="rail-group">
           <button
             type="button"
-            className="nav-btn"
+            className="nav-btn rail-desktop-only"
             onClick={handleJumpToday}
             title="Elischedule"
             aria-label="Elischedule"
@@ -164,14 +188,15 @@ export function App() {
             <EmblemIcon />
           </button>
 
-          <div className="rail-divider" />
+          <div className="rail-divider rail-desktop-only" />
 
           <button
             type="button"
             className="nav-btn"
-            data-active="true"
-            title="周课表"
-            aria-label="周课表"
+            data-active={viewMode === 'week'}
+            onClick={() => setViewMode('week')}
+            title="周课表视图"
+            aria-label="周课表视图"
           >
             <TimetableIcon />
           </button>
@@ -179,7 +204,20 @@ export function App() {
           <button
             type="button"
             className="nav-btn"
-            onClick={() => setDraftCourse(makeDraftCourse(getTodayDayOfWeek(now), 1))}
+            data-active={viewMode === 'day'}
+            onClick={() => setViewMode('day')}
+            title="今日日程视图"
+            aria-label="今日日程视图"
+          >
+            <DayListIcon />
+          </button>
+
+          <button
+            type="button"
+            className="nav-btn"
+            onClick={() =>
+              setDraftCourse(makeDraftCourse(viewMode === 'day' ? selectedDay : getTodayDayOfWeek(now), 1))
+            }
             title="新建课程"
             aria-label="新建课程"
           >
@@ -198,7 +236,7 @@ export function App() {
 
           <button
             type="button"
-            className="nav-btn"
+            className="nav-btn rail-desktop-only"
             onClick={handleJumpToday}
             title={`回到当前周 (W${String(realCurrentWeek).padStart(2, '0')})`}
             aria-label="回到当前周"
@@ -233,7 +271,7 @@ export function App() {
       <div className="app-workspace">
         <header className="app-header">
           <div className="header-left">
-            <h1 className="week-heading font-serif">
+            <h1 className="week-heading font-serif" onClick={handleJumpToday} style={{ cursor: 'pointer' }}>
               Week {String(state.currentWeek).padStart(2, '0')}
             </h1>
             <div className="week-arrows" role="group" aria-label="周次切换">
@@ -274,16 +312,30 @@ export function App() {
         </header>
 
         <main className="main-container">
-          <TimetableGrid
-            courses={state.courses}
-            termStartDate={state.termStartDate}
-            currentWeek={state.currentWeek}
-            now={now}
-            staggerSeed={staggerSeed}
-            onSelectCourse={setSelectedCourse}
-            onCreateAtSlot={(day, period) => setDraftCourse(makeDraftCourse(day, period))}
-            onSwipeWeek={handleChangeWeek}
-          />
+          {viewMode === 'day' ? (
+            <DayAgendaView
+              courses={state.courses}
+              termStartDate={state.termStartDate}
+              currentWeek={state.currentWeek}
+              selectedDay={selectedDay}
+              now={now}
+              onSelectDay={setSelectedDay}
+              onSwipeDay={handleSwipeDay}
+              onSelectCourse={setSelectedCourse}
+              onCreateForDay={(day) => setDraftCourse(makeDraftCourse(day, 1))}
+            />
+          ) : (
+            <TimetableGrid
+              courses={state.courses}
+              termStartDate={state.termStartDate}
+              currentWeek={state.currentWeek}
+              now={now}
+              staggerSeed={staggerSeed}
+              onSelectCourse={setSelectedCourse}
+              onCreateAtSlot={(day, period) => setDraftCourse(makeDraftCourse(day, period))}
+              onSwipeWeek={handleChangeWeek}
+            />
+          )}
         </main>
       </div>
 
