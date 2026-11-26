@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { shortenUSSTLocation } from '../constants/usst';
 import {
+  computeCurrentWeek,
+  formatMonthDay,
   formatWeekSummary,
   getCurrentTimelinePeriodOffset,
+  getDatesForWeek,
   isCourseActiveInWeek,
+  normalizeToMonday,
 } from './localStore';
 import type { Course } from '../types';
 
@@ -47,5 +51,14 @@ describe('schedule utilities', () => {
 
     const lateNight = new Date(2026, 10, 26, 23, 30, 0);
     expect(getCurrentTimelinePeriodOffset(lateNight)).toBeNull();
+  });
+
+  it('normalizes dates to Monday and computes current week & week dates', () => {
+    expect(normalizeToMonday('2026-09-09')).toBe('2026-09-07'); // Wed -> Mon
+    expect(computeCurrentWeek('2026-09-07', new Date(2026, 10, 26), 18)).toBe(12);
+    const week12 = getDatesForWeek('2026-09-07', 12);
+    expect(week12).toHaveLength(7);
+    expect(formatMonthDay(week12[0])).toBe('11/23');
+    expect(formatMonthDay(week12[3])).toBe('11/26');
   });
 });

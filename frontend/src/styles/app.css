@@ -163,15 +163,23 @@
   color: var(--ink-3);
 }
 
+.day-date {
+  font-size: 10.5px;
+  color: var(--ink-3);
+  opacity: 0.8;
+}
+
 .day-cn {
   font-size: 12px;
   color: var(--ink-2);
 }
 
 .day-col-header--today .day-mono,
+.day-col-header--today .day-date,
 .day-col-header--today .day-cn {
   color: var(--book-cloth);
   font-weight: 600;
+  opacity: 1;
 }
 
 .timetable-body {
@@ -209,6 +217,22 @@
 .grid-slot-line {
   height: 64px;
   border-bottom: 1px solid var(--line-soft);
+}
+
+.grid-slot-btn {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  background: transparent;
+  cursor: pointer;
+  transition: background-color 140ms var(--ease-paper);
+}
+
+.grid-slot-btn:hover {
+  background-color: var(--bg-tile);
 }
 
 .grid-slot-line:nth-child(even) {
@@ -344,6 +368,48 @@
   font-weight: 400;
   line-height: 1.28;
   letter-spacing: -0.015em;
+}
+
+.sheet-title-input {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--ink-1);
+  font-size: 24px;
+  font-weight: 400;
+  line-height: 1.28;
+  letter-spacing: -0.015em;
+}
+
+.sheet-title-input::placeholder {
+  color: var(--ink-3);
+}
+
+.inline-select-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.ledger-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--ink-1);
+  font-family: inherit;
+  font-size: 13px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.ledger-select:hover {
+  background-color: var(--bg-tile);
 }
 
 .sheet-subtitle {
